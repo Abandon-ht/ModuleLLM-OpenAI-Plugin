@@ -188,13 +188,15 @@ class LlmClientBackend(BaseModelBackend):
         total_length = 0
         keep_messages = []
         
+        for msg in reversed(messages):
+            if msg.role == "system":
+                total_length += self._count_tokens(msg.content)
+                total_length += 16
+
         # Process in reverse to keep latest messages
         for msg in reversed(messages):
-            if msg.role == "system":  # Always keep system messages
-                keep_messages.insert(0, msg)
-                continue
+            msg_length = 0
             if isinstance(msg.content, list):
-                msg_length = 0
                 for item in msg.content:
                     if item.type == "text":
                         msg_length += self._count_tokens(item.text)
@@ -203,6 +205,10 @@ class LlmClientBackend(BaseModelBackend):
                 break
             else:
                 msg_length = self._count_tokens(msg.content)
+            if msg.role == "user":
+                msg_length += 3
+            if msg.role == "assistant":
+                msg_length += 3
             if total_length + msg_length > self.MAX_CONTEXT_LENGTH:
                 break
             total_length += msg_length
@@ -227,6 +233,12 @@ class LlmClientBackend(BaseModelBackend):
         try:
             truncated_messages = self._truncate_history(request.messages)
             
+            if not truncated_messages:
+                raise HTTPException(
+                status_code=400,
+                detail="The input content exceeds the maximum length supported by the model."
+                )
+
             query_lines = []
             base64_images = []
             system_prompt = ""

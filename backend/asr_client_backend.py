@@ -23,7 +23,7 @@ class ASRClientBackend(BaseModelBackend):
             port=self.config["port"]
         )
         
-    async def _get_client(self):
+    async def _get_client(self, language: str):
         try:
             await asyncio.wait_for(self._pool_lock.acquire(), timeout=30.0)
             
@@ -65,7 +65,7 @@ class ASRClientBackend(BaseModelBackend):
                     "model": self.config["model_name"],
                     "response_format": "asr.utf-8",
                     "input": "whisper.wav.stream.base64",
-                    "language": "zh",
+                    "language": language,
                     "enoutput": True
                 }
             )
@@ -104,7 +104,7 @@ class ASRClientBackend(BaseModelBackend):
         return full_result
 
     async def create_transcription(self, audio_data: bytes, language: str = "zh", prompt: str = "") -> str:
-        client = await self._get_client()
+        client = await self._get_client(language)
         task = asyncio.current_task()
         self._active_tasks.add(task)
         try:
